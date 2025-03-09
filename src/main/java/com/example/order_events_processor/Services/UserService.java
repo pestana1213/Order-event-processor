@@ -31,8 +31,6 @@ public class UserService {
         if (user.isPresent()) {
             return user.get();
         }
-        else {
-            throw new UserNotFound();
-        }
+        throw new UserNotFound();
     }
 }

@@ -21,4 +21,26 @@ public class MessageToOrder implements MessageMapper{
         }
         return null;
     }
+
+    public String orderIdFromMessage(String message) {
+        try {
+            String[] parts = message.split(" ");
+            return parts[0];
+        }
+        catch (Exception e) {
+            System.out.println("Error");
+        }
+        return null;
+    }
+
+    public String nextStatusFromMessage(String message) {
+        try {
+            String[] parts = message.split(" ");
+            return parts[1];
+        }
+        catch (Exception e) {
+            System.out.println("Error");
+        }
+        return null;
+    }
 }

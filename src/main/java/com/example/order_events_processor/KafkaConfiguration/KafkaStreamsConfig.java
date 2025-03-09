@@ -2,7 +2,6 @@ package com.example.order_events_processor.KafkaConfiguration;
 
 import com.example.order_events_processor.DTO.OrderDto;
 import com.example.order_events_processor.Exceptions.OrderException;
-import com.example.order_events_processor.MessagesMappers.MessageMapper;
 import com.example.order_events_processor.MessagesMappers.MessageToOrder;
 import com.example.order_events_processor.Services.OrderService;
 import org.apache.kafka.streams.StreamsConfig;
@@ -19,7 +18,6 @@ import org.springframework.kafka.annotation.EnableKafkaStreams;
 import org.apache.kafka.common.serialization.Serdes;
 
 import java.util.Properties;
-import java.util.stream.Stream;
 
 @EnableKafka
 @EnableKafkaStreams
@@ -67,6 +65,23 @@ public class KafkaStreamsConfig {
 
         failedStream.to("failed-orders", Produced.with(Serdes.String(), Serdes.String()));
 
+        return stream;
+    }
+
+    @Bean
+    public KStream<String, String> updateOrderStream(StreamsBuilder streamsBuilder) {
+        KStream<String, String> stream = streamsBuilder.stream("update-order", Consumed.with(Serdes.String(), Serdes.String()));
+
+        stream.foreach((key, value) -> {
+            try {
+                String orderId = messageToOrder.orderIdFromMessage(value);
+                String nextStatus = messageToOrder.nextStatusFromMessage(value);
+                orderService.updateStatus(orderId, nextStatus);
+            }
+            catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
+        });
         return stream;
     }
 }
