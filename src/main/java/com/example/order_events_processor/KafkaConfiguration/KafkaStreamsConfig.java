@@ -1,6 +1,7 @@
 package com.example.order_events_processor.KafkaConfiguration;
 
 import com.example.order_events_processor.DTO.OrderDto;
+import com.example.order_events_processor.Exceptions.OrderException;
 import com.example.order_events_processor.MessagesMappers.MessageMapper;
 import com.example.order_events_processor.MessagesMappers.MessageToOrder;
 import com.example.order_events_processor.Services.OrderService;
@@ -8,6 +9,7 @@ import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.StreamsBuilder;
+import org.apache.kafka.streams.kstream.Produced;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -17,6 +19,7 @@ import org.springframework.kafka.annotation.EnableKafkaStreams;
 import org.apache.kafka.common.serialization.Serdes;
 
 import java.util.Properties;
+import java.util.stream.Stream;
 
 @EnableKafka
 @EnableKafkaStreams
@@ -46,19 +49,23 @@ public class KafkaStreamsConfig {
         return properties;
     }
 
-    // Define the Kafka Streams topology
     @Bean
     public KStream<String, String> orderStream(StreamsBuilder streamsBuilder) {
-        // Subscribe to the "create-order" topic
         KStream<String, String> stream = streamsBuilder.stream("create-order", Consumed.with(Serdes.String(), Serdes.String()));
 
+        KStream<String, String> failedStream = stream
+            .mapValues(value -> {
+                try {
+                    OrderDto orderDto = messageToOrder.map(value);
+                    orderService.createOrder(orderDto);
+                    return null;
+                } catch (OrderException e) {
+                    return value;
+                }
+            })
+            .filter((key, value) -> value != null);
 
-        // Process the stream - you can define transformations here
-        stream.foreach((key, value) -> {
-            OrderDto orderDto = messageToOrder.map(value);
-            orderService.createOrder(orderDto);
-            System.out.println("Received from topic: " + key + " -> " + value);
-        });
+        failedStream.to("failed-orders", Produced.with(Serdes.String(), Serdes.String()));
 
         return stream;
     }
